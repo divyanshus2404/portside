@@ -4,6 +4,8 @@
 
 No more `Error: listen EADDRINUSE: address already in use :::3000`, no more searching for `lsof -i :3000` and `kill -9`.
 
+![A terminal shows EADDRINUSE for port 4000, and Portside offers to stop the server already using it](media/port-conflict.png)
+
 ## Features
 
 - **Everything listening on localhost, in one sidebar.** Each server shows its port, a readable name (Next.js, Vite, Django, Uvicorn, PostgreSQL, Redis…), the project folder that started it, and how long it has been running.

@@ -1,6 +1,7 @@
 // Groups discovered ports into what the sidebar shows: servers from the open project first,
 // other dev servers next, and apps and system services last.
 
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { PortProcess } from './discovery';
 import { describeProcess, isAirPlayReceiver, isDevProcess } from './labels';
@@ -21,8 +22,23 @@ export function isInside(folder: string, target: string): boolean {
   return relative === '' || (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
+/**
+ * The project folder to show for a server. Servers started from the home folder (e.g. a
+ * quick `npx http-server` in a new terminal) don't belong to a project, so they get none.
+ */
+export function projectName(cwd: string | undefined, homeDirectory: string): string | undefined {
+  if (!cwd || path.resolve(cwd) === path.resolve(homeDirectory)) {
+    return undefined;
+  }
+  return path.basename(cwd);
+}
+
 /** Builds the sidebar model. One entry per process, keeping its lowest port as the main one. */
-export function buildServers(processes: PortProcess[], workspaceFolders: string[]): Server[] {
+export function buildServers(
+  processes: PortProcess[],
+  workspaceFolders: string[],
+  homeDirectory: string = os.homedir(),
+): Server[] {
   const byPid = new Map<number, Server>();
   for (const item of [...processes].sort((a, b) => a.port - b.port)) {
     const existing = byPid.get(item.pid);
@@ -38,7 +54,7 @@ export function buildServers(processes: PortProcess[], workspaceFolders: string[
       ...item,
       label: describeProcess(item.commandLine, item.name, item.port),
       group: insideWorkspace ? 'workspace' : dev ? 'otherDev' : 'system',
-      project: item.cwd ? path.basename(item.cwd) : undefined,
+      project: projectName(item.cwd, homeDirectory),
       extraPorts: [],
     });
   }

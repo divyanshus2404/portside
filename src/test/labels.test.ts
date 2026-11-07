@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { describeProcess, executableName, isDevProcess, knownServer } from '../labels';
-import { buildServers, isInside } from '../serverModel';
+import { buildServers, isInside, projectName } from '../serverModel';
 
 test('knownServer recognizes common frameworks from real command lines', () => {
   const cases: Array<[string, string]> = [
@@ -71,6 +71,23 @@ test('isInside only accepts folders within the workspace', () => {
   assert.equal(isInside('/Users/me/app', '/Users/me'), false);
 });
 
+test('projectName ignores the home folder, which is not a project', () => {
+  assert.equal(projectName('/Users/me', '/Users/me'), undefined);
+  assert.equal(projectName('/Users/me/', '/Users/me'), undefined);
+  assert.equal(projectName(undefined, '/Users/me'), undefined);
+  assert.equal(projectName('/Users/me/app', '/Users/me'), 'app');
+});
+
+test('buildServers leaves servers started from the home folder without a project', () => {
+  const [server] = buildServers(
+    [{ pid: 60729, name: 'node', port: 4000, address: '*', commandLine: 'http-server -p 4000', cwd: '/Users/me' }],
+    [],
+    '/Users/me',
+  );
+  assert.equal(server.project, undefined);
+  assert.equal(server.group, 'otherDev');
+});
+
 test('buildServers groups by project and merges extra ports of one process', () => {
   const servers = buildServers(
     [
@@ -81,6 +98,7 @@ test('buildServers groups by project and merges extra ports of one process', () 
       { pid: 40, name: 'ControlCe', port: 5000, address: '*', commandLine: '/System/ControlCenter' },
     ],
     ['/w/app'],
+    '/home/nobody',
   );
   assert.deepEqual(
     servers.map((server) => [server.port, server.label, server.group, server.project, server.extraPorts]),
