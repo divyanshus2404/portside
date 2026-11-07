@@ -1,5 +1,10 @@
 # Portside: Kill Port & Manage Dev Servers
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/DivyanshuSingh.portside?label=VS%20Code%20Marketplace&color=0078d4)](https://marketplace.visualstudio.com/items?itemName=DivyanshuSingh.portside)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/DivyanshuSingh.portside?color=3fd68b)](https://marketplace.visualstudio.com/items?itemName=DivyanshuSingh.portside)
+[![CI](https://github.com/divyanshus2404/portside/actions/workflows/ci.yml/badge.svg)](https://github.com/divyanshus2404/portside/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 **`Error: listen EADDRINUSE: address already in use :::3000`? Portside tells you what's using the port and stops it in one click.**
 
 ![A terminal shows EADDRINUSE for port 4000, Portside offers to stop the server using it, one click on Stop It frees the port, and npm run dev starts](media/demo.gif)
@@ -17,7 +22,11 @@ No more `lsof -i :3000`, no more `kill -9`, no more hunting for the terminal you
 
 ## Fixes "port already in use" where it happens
 
-When a command in the VS Code terminal fails because its port is taken, Portside names what holds the port, which project started it and for how long, and offers **Stop It**. It recognizes the errors from Node, Next.js, Vite, Astro, Create React App, Django, Uvicorn, Go, Rails and more.
+When a command in the VS Code terminal fails because its port is taken, Portside names what holds the port, which project started it and for how long, and offers **Stop It**. Once the port is free, **Run Again** reruns your command in the same terminal. It recognizes the errors from Node, Next.js, Vite, Astro, Create React App, Django, Uvicorn, Go, Rails and more.
+
+Want zero clicks? Turn on `portside.autoFreePortsFromThisProject` and stale servers from the project you have open are stopped automatically. Servers from other projects always ask first.
+
+**It knows Docker.** A port published by a container shows the container's name and image, and Stop runs `docker stop`. Works with Docker Desktop, OrbStack, Colima, Rancher Desktop and Podman.
 
 **It stops the whole dev server.** Stopping a server started with `npm run dev` ends the whole job (npm, node and the server), so it doesn't restart itself. Shells and VS Code itself are never touched.
 
@@ -31,6 +40,8 @@ When a command in the VS Code terminal fails because its port is taken, Portside
 | Know which project it is | `ps`, `lsof -p <pid> -d cwd` | Shown next to the port |
 | Stop it | `kill <pid>`, then `kill -9` | **Stop It** |
 | Stop `npm run dev` cleanly | Find the parent npm process too | Stops the whole job |
+| Port held by Docker | `docker ps`, match the port, `docker stop` | Shows the container; Stop stops it |
+| Run the command again | Scroll up, copy, paste | **Run Again** |
 | Port 5000 taken on a Mac | Search why | Told it's AirPlay Receiver |
 
 ## Commands
@@ -39,6 +50,8 @@ When a command in the VS Code terminal fails because its port is taken, Portside
 | --- | --- |
 | `Portside: Show Running Dev Servers` | Quick list of dev servers; select one to open it, or use the stop button |
 | `Portside: Stop Whatever Is Using a Port...` | Type a port number and stop what's on it |
+| `Portside: Stop All Servers in This Project` | Stop every server started from the open project (also a button in the sidebar) |
+| `Portside: Stop All Dev Servers` | End-of-day cleanup: stop every dev server, after confirming |
 | `Portside: Refresh` | Check ports now |
 
 ## Settings
@@ -48,14 +61,17 @@ When a command in the VS Code terminal fails because its port is taken, Portside
 | `portside.refreshInterval` | `5` | Seconds between checks while VS Code is focused |
 | `portside.showStatusBar` | `true` | Show the dev server count in the status bar |
 | `portside.detectPortConflicts` | `true` | Offer to free a port when a terminal reports it is in use |
+| `portside.autoFreePortsFromThisProject` | `false` | Stop stale servers from the open project without asking, then offer Run Again |
 
 ## Requirements
 
 - **macOS and Linux:** uses `lsof` (or `ss` on Linux), which are installed on almost every system.
 - **Windows:** uses `netstat` and PowerShell.
+- **Remote (SSH, WSL, Dev Containers):** Portside runs where your code runs and lists that machine's ports. Open in Browser forwards the port for you.
+- Tested on every change on macOS, Linux and Windows, including real servers and a real Docker container.
 - Port-conflict detection reads terminal output through VS Code's shell integration, which is on by default for bash, zsh, fish and PowerShell.
 
-Portside only lists processes your user account can see, and never sends anything over the network.
+Portside only lists processes your user account can see, never sends anything over the network, and collects no telemetry.
 
 ## Try it without your own projects
 

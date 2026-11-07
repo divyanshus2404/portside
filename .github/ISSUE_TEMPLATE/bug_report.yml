@@ -1,0 +1,36 @@
+name: Bug report
+description: Something in Portside doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [macOS, Windows, Linux, WSL, Remote SSH, Dev Container]
+    validations:
+      required: true
+  - type: input
+    id: editor
+    attributes:
+      label: Editor and version
+      description: For example VS Code 1.95.0, Cursor 0.45, VSCodium 1.95 (Help → About)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Portside version
+      placeholder: "0.2.0"
+  - type: textarea
+    id: server
+    attributes:
+      label: The server involved
+      description: The command you ran (e.g. `npm run dev`), the framework, and the port. For "port in use" problems, paste the terminal error too.
+      render: shell

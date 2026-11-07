@@ -1,6 +1,7 @@
 src/**
 out/test/**
 out/smoke/**
+out/integration/**
 out/**/*.map
 node_modules/**
 media/icon.svg
@@ -10,3 +11,6 @@ scripts/**
 tsconfig.json
 .gitignore
 **/*.vsix
+media/social-preview.png
+.github/**
+.vscode-test/**

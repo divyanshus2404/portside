@@ -244,11 +244,13 @@
     "vscode:prepublish": "npm run compile",
     "demo": "node scripts/demo.js",
     "test:smoke": "npm run compile && node out/smoke/smoke.js",
-    "test:docker": "npm run compile && node out/smoke/dockerSmoke.js"
+    "test:docker": "npm run compile && node out/smoke/dockerSmoke.js",
+    "test:vscode": "npm run compile && node out/integration/runTest.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "~1.93.0",
+    "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.2.0",
     "typescript": "^5.6.0"
   },

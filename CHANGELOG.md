@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- **Run Again:** after freeing a port from the "port in use" popup, rerun the command that failed in the same terminal.
+- **Auto-free (opt-in):** `portside.autoFreePortsFromThisProject` stops stale servers from the open project without asking.
+- **Docker:** ports published by containers show the container's name and image, and Stop runs `docker stop`. Supports Docker Desktop, OrbStack, Colima, Rancher Desktop and Podman; on Linux, published ports appear even when the forwarder runs as root.
+- **Stop All Servers in This Project** (sidebar button) and **Stop All Dev Servers**.
+- **Remote:** in SSH, WSL and Dev Container windows Portside runs on the remote side, and Open in Browser forwards the port.
+- **Windows:** servers are matched to the open project from their command line.
+- Tested on every change on macOS, Linux and Windows with real servers, plus a real Docker container on Linux.
+
 ## 0.1.2
 
 - Projects opened through a symlinked folder (for example `~/code` linked to another drive, or anything under `/tmp` on macOS) now show their servers under "This project".
