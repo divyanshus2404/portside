@@ -2,12 +2,17 @@ import * as vscode from 'vscode';
 import { PortProcess, listPortProcesses, stopProcess } from './discovery';
 import { formatUptime } from './parse';
 import { findPortConflict, hasUnnamedPortConflict, portFromCommand, stripAnsi } from './portConflict';
-import { Server, buildServers, urlFor } from './serverModel';
+import { Server, buildServers, serverDetails, urlFor } from './serverModel';
 import { PortsTreeProvider } from './tree';
 
 let servers: Server[] = [];
 let refreshing: Promise<void> | undefined;
 let lastError: string | undefined;
+let extensionContext: vscode.ExtensionContext;
+
+const MARKETPLACE_REVIEWS = 'https://marketplace.visualstudio.com/items?itemName=DivyanshuSingh.portside&ssr=false#review-details';
+const OPEN_VSX_REVIEWS = 'https://open-vsx.org/extension/DivyanshuSingh/portside/reviews';
+const REVIEW_AFTER_STOPS = 5;
 
 function settings(): vscode.WorkspaceConfiguration {
   return vscode.workspace.getConfiguration('portside');
@@ -17,7 +22,27 @@ function workspaceFolders(): string[] {
   return (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
 }
 
+function serverOnPort(port: number): Server | undefined {
+  return servers.find((item) => item.port === port || item.extraPorts.includes(port));
+}
+
+function describeHolder(server: Server): string {
+  if (server.container) {
+    return `the Docker container ${server.container.name} (${server.container.image})`;
+  }
+  const where = server.project ? ` from ${server.project}` : '';
+  const age = server.uptimeSeconds !== undefined ? `, running for ${formatUptime(server.uptimeSeconds)}` : '';
+  return `${server.label}${where} (PID ${server.pid}${age})`;
+}
+
+/** Opens a localhost URL; in remote windows (SSH, WSL, containers) VS Code forwards the port first. */
+async function openServer(server: Server): Promise<void> {
+  const external = await vscode.env.asExternalUri(vscode.Uri.parse(urlFor(server)));
+  await vscode.env.openExternal(external);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
+  extensionContext = context;
   const tree = new PortsTreeProvider();
   const view = vscode.window.createTreeView('portside.ports', { treeDataProvider: tree, showCollapseAll: true });
   const statusBar = vscode.window.createStatusBarItem('portside.status', vscode.StatusBarAlignment.Left, 50);
@@ -40,8 +65,12 @@ export function activate(context: vscode.ExtensionContext): void {
         refreshing = undefined;
       }
       tree.update(servers);
-      view.badge = undefined;
       updateStatusBar(statusBar);
+      void vscode.commands.executeCommand(
+        'setContext',
+        'portside.hasProjectServers',
+        servers.some((server) => server.group === 'workspace'),
+      );
     })();
     return refreshing;
   };
@@ -71,11 +100,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
     vscode.commands.registerCommand('portside.refresh', () => refresh()),
-    vscode.commands.registerCommand('portside.openInBrowser', (server?: Server) => {
-      if (server) {
-        void vscode.env.openExternal(vscode.Uri.parse(urlFor(server)));
-      }
-    }),
+    vscode.commands.registerCommand('portside.openInBrowser', (server?: Server) => server && openServer(server)),
     vscode.commands.registerCommand('portside.copyUrl', async (server?: Server) => {
       if (server) {
         await vscode.env.clipboard.writeText(urlFor(server));
@@ -93,6 +118,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('portside.forceKill', (server?: Server) => server && stop(server, true, refresh)),
     vscode.commands.registerCommand('portside.stopPort', () => stopPortPrompt(refresh)),
     vscode.commands.registerCommand('portside.showServers', () => showServersPick(refresh)),
+    vscode.commands.registerCommand('portside.stopProjectServers', () => stopMany('workspace', refresh)),
+    vscode.commands.registerCommand('portside.stopAllDevServers', () => stopMany('allDev', refresh)),
   );
 
   watchTerminals(context, refresh);
@@ -106,17 +133,20 @@ function updateStatusBar(statusBar: vscode.StatusBarItem): void {
     return;
   }
   statusBar.text = `$(radio-tower) ${devServers.length}`;
-  const tooltip = new vscode.MarkdownString(
+  statusBar.tooltip = new vscode.MarkdownString(
     `**${devServers.length} dev server${devServers.length === 1 ? '' : 's'} running**\n\n` +
       devServers
-        .map((server) => `- \`:${server.port}\` ${server.label}${server.project ? ` · ${server.project}` : ''}`)
+        .map((server) => {
+          const details = serverDetails(server, '');
+          return `- \`:${server.port}\` ${server.label}${details ? ` · ${details}` : ''}`;
+        })
         .join('\n'),
   );
-  statusBar.tooltip = tooltip;
   statusBar.show();
 }
 
-async function stop(server: Server, force: boolean, refresh: () => Promise<void>): Promise<void> {
+/** Stops a server, asking first for apps and system services. Returns whether the port was freed. */
+async function stop(server: Server, force: boolean, refresh: () => Promise<void>, quiet = false): Promise<boolean> {
   if (server.group === 'system') {
     const choice = await vscode.window.showWarningMessage(
       `${server.label} (PID ${server.pid}) doesn't look like a dev server. Stop it anyway?`,
@@ -124,28 +154,58 @@ async function stop(server: Server, force: boolean, refresh: () => Promise<void>
       force ? 'Force Kill' : 'Stop',
     );
     if (!choice) {
-      return;
+      return false;
     }
   }
   const result = await stopProcess(server, force);
-  if (result === 'stopped') {
-    vscode.window.setStatusBarMessage(`$(check) Stopped ${server.label} on :${server.port}`, 3000);
+  let stopped = result === 'stopped';
+  if (stopped) {
+    if (!quiet) {
+      vscode.window.setStatusBarMessage(`$(check) Stopped ${server.label} on :${server.port}`, 3000);
+    }
+    void countSuccessfulStop();
   } else if (result === 'not-permitted') {
     vscode.window.showErrorMessage(
       `Portside isn't allowed to stop ${server.label} (PID ${server.pid}); it belongs to another user or the system.`,
     );
   } else if (!force) {
-    const choice = await vscode.window.showWarningMessage(
-      `${server.label} on :${server.port} is still running.`,
-      'Force Kill',
-    );
+    const choice = await vscode.window.showWarningMessage(`${server.label} on :${server.port} is still running.`, 'Force Kill');
     if (choice) {
-      await stop(server, true, refresh);
-      return;
+      stopped = await stop(server, true, refresh, quiet);
+      return stopped;
     }
   } else {
     vscode.window.showErrorMessage(`Couldn't stop ${server.label} (PID ${server.pid}).`);
   }
+  await refresh();
+  return stopped;
+}
+
+async function stopMany(scope: 'workspace' | 'allDev', refresh: () => Promise<void>): Promise<void> {
+  await refresh();
+  const targets = servers.filter((server) => (scope === 'workspace' ? server.group === 'workspace' : server.group !== 'system'));
+  if (targets.length === 0) {
+    vscode.window.showInformationMessage(scope === 'workspace' ? 'No servers from this project are running.' : 'No dev servers are running.');
+    return;
+  }
+  const list = targets.map((server) => `:${server.port} ${server.label}`).join(', ');
+  const choice = await vscode.window.showWarningMessage(
+    scope === 'workspace'
+      ? `Stop ${targets.length} server${targets.length === 1 ? '' : 's'} from this project?`
+      : `Stop all ${targets.length} running dev server${targets.length === 1 ? '' : 's'}?`,
+    { modal: true, detail: list },
+    'Stop',
+  );
+  if (choice !== 'Stop') {
+    return;
+  }
+  let stoppedCount = 0;
+  for (const server of targets) {
+    if (await stop(server, false, refresh, true)) {
+      stoppedCount++;
+    }
+  }
+  vscode.window.setStatusBarMessage(`$(check) Stopped ${stoppedCount} of ${targets.length} servers`, 4000);
   await refresh();
 }
 
@@ -161,7 +221,7 @@ async function stopPortPrompt(refresh: () => Promise<void>): Promise<void> {
   }
   await refresh();
   const port = Number(input.trim());
-  const server = servers.find((item) => item.port === port || item.extraPorts.includes(port));
+  const server = serverOnPort(port);
   if (!server) {
     vscode.window.showInformationMessage(`Nothing you can see is listening on port ${port}.`);
     return;
@@ -183,15 +243,15 @@ async function showServersPick(refresh: () => Promise<void>): Promise<void> {
   pick.placeholder = 'Select to open in the browser';
   pick.items = devServers.map((server) => ({
     label: `:${server.port}  ${server.label}`,
-    description: [server.project, formatUptime(server.uptimeSeconds)].filter(Boolean).join(' · '),
-    detail: server.commandLine,
+    description: serverDetails(server, formatUptime(server.uptimeSeconds)),
+    detail: server.container ? `docker container ${server.container.id}` : server.commandLine,
     buttons: [stopButton],
     server,
   }));
   pick.onDidAccept(() => {
     const selected = pick.selectedItems[0];
     if (selected) {
-      void vscode.env.openExternal(vscode.Uri.parse(urlFor(selected.server)));
+      void openServer(selected.server);
     }
     pick.hide();
   });
@@ -223,7 +283,7 @@ function watchTerminals(context: vscode.ExtensionContext, refresh: () => Promise
             const last = recentlyOffered.get(port) ?? 0;
             if (Date.now() - last > 30_000) {
               recentlyOffered.set(port, Date.now());
-              void offerToFreePort(port, refresh);
+              void handlePortConflict(port, event.terminal, commandLine, refresh);
             }
           }
         }
@@ -234,9 +294,24 @@ function watchTerminals(context: vscode.ExtensionContext, refresh: () => Promise
   );
 }
 
-async function offerToFreePort(port: number, refresh: () => Promise<void>): Promise<void> {
+/** After freeing a port, offers to rerun the command that failed in the same terminal. */
+async function offerRunAgain(message: string, terminal: vscode.Terminal, commandLine: string): Promise<void> {
+  const canRerun = commandLine.trim().length > 0 && vscode.window.terminals.includes(terminal);
+  const choice = await vscode.window.showInformationMessage(message, ...(canRerun ? ['Run Again'] : []));
+  if (choice === 'Run Again' && vscode.window.terminals.includes(terminal)) {
+    terminal.show();
+    terminal.sendText(commandLine, true);
+  }
+}
+
+async function handlePortConflict(
+  port: number,
+  terminal: vscode.Terminal,
+  commandLine: string,
+  refresh: () => Promise<void>,
+): Promise<void> {
   await refresh();
-  const server = servers.find((item) => item.port === port || item.extraPorts.includes(port));
+  const server = serverOnPort(port);
   if (!server) {
     return;
   }
@@ -250,17 +325,42 @@ async function offerToFreePort(port: number, refresh: () => Promise<void>): Prom
     }
     return;
   }
-  const where = server.project ? ` from ${server.project}` : '';
-  const age = server.uptimeSeconds !== undefined ? `, running for ${formatUptime(server.uptimeSeconds)}` : '';
-  const choice = await vscode.window.showWarningMessage(
-    `Port ${port} is used by ${server.label}${where} (PID ${server.pid}${age}).`,
-    'Stop It',
-    'Show',
-  );
+
+  // Opt-in: a stale server from the open project is stopped without asking.
+  if (settings().get<boolean>('autoFreePortsFromThisProject', false) && server.group === 'workspace') {
+    if (await stop(server, false, refresh, true)) {
+      await offerRunAgain(`Freed port ${port}: stopped the old ${server.label}${server.project ? ` from ${server.project}` : ''}.`, terminal, commandLine);
+    }
+    return;
+  }
+
+  const choice = await vscode.window.showWarningMessage(`Port ${port} is used by ${describeHolder(server)}.`, 'Stop It', 'Show');
   if (choice === 'Stop It') {
-    await stop(server, false, refresh);
+    if (await stop(server, false, refresh, true)) {
+      await offerRunAgain(`Port ${port} is free now.`, terminal, commandLine);
+    }
   } else if (choice === 'Show') {
     await vscode.commands.executeCommand('portside.ports.focus');
+  }
+}
+
+/** After a few successful stops, asks once (and only once) for a rating. */
+async function countSuccessfulStop(): Promise<void> {
+  const state = extensionContext.globalState;
+  const count = state.get<number>('portside.successfulStops', 0) + 1;
+  await state.update('portside.successfulStops', count);
+  if (count < REVIEW_AFTER_STOPS || state.get<boolean>('portside.reviewAsked', false)) {
+    return;
+  }
+  await state.update('portside.reviewAsked', true);
+  const choice = await vscode.window.showInformationMessage(
+    `Portside has freed ${count} ports for you. If it's saving you time, a quick rating helps other developers find it.`,
+    'Rate Portside',
+    'No Thanks',
+  );
+  if (choice === 'Rate Portside') {
+    const reviews = vscode.env.uriScheme.startsWith('vscode') ? MARKETPLACE_REVIEWS : OPEN_VSX_REVIEWS;
+    void vscode.env.openExternal(vscode.Uri.parse(reviews));
   }
 }
 

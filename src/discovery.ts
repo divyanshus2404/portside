@@ -1,7 +1,9 @@
 // Finds listening TCP ports and the processes behind them, and stops processes.
 
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { readlink } from 'node:fs/promises';
+import { Container, DOCKER_PS_FORMAT, isDockerForwarder, parseDockerPs } from './docker';
 import {
   Listener,
   ProcessInfo,
@@ -18,6 +20,8 @@ export interface PortProcess extends Listener {
   groupId?: number;
   uptimeSeconds?: number;
   cwd?: string;
+  /** Set when the port is published by a Docker container. */
+  container?: Container;
 }
 
 interface RunResult {
@@ -94,13 +98,13 @@ export async function listPortProcesses(): Promise<PortProcess[]> {
   const listeners = isWindows ? parseNetstat((await run('netstat', ['-ano', '-p', 'TCP'])).stdout) : await unixListeners();
   const pids = [...new Set(listeners.map((listener) => listener.pid))];
   if (pids.length === 0) {
-    return [];
+    return attachContainers([]);
   }
   const [processes, directories] = await Promise.all([
     isWindows ? windowsProcesses(pids) : unixProcesses(pids),
     isWindows ? Promise.resolve(new Map<number, string>()) : unixWorkingDirectories(pids),
   ]);
-  return listeners
+  const result: PortProcess[] = listeners
     .map((listener) => {
       const info = processes.get(listener.pid);
       const cwd = directories.get(listener.pid);
@@ -114,6 +118,39 @@ export async function listPortProcesses(): Promise<PortProcess[]> {
       };
     })
     .sort((a, b) => a.port - b.port);
+  return attachContainers(result);
+}
+
+/** On Linux the Docker daemon (and its port forwarder) usually runs as root, out of `lsof`'s view. */
+function linuxDockerSocket(): boolean {
+  return process.platform === 'linux' && existsSync('/var/run/docker.sock');
+}
+
+/**
+ * Names the container behind ports that Docker (or a compatible runtime) publishes. Ports the
+ * forwarder holds get their container; published ports nobody could see (a root-owned
+ * forwarder on Linux) are added as container entries so they still show up and can be stopped.
+ */
+async function attachContainers(processes: PortProcess[]): Promise<PortProcess[]> {
+  const forwarded = processes.filter((item) => isDockerForwarder(item.name, item.commandLine));
+  if (forwarded.length === 0 && !linuxDockerSocket()) {
+    return processes;
+  }
+  const docker = await run('docker', ['ps', '--format', DOCKER_PS_FORMAT]);
+  if (docker.missing || !docker.stdout.trim()) {
+    return processes;
+  }
+  const containers = parseDockerPs(docker.stdout);
+  for (const item of forwarded) {
+    item.container = containers.get(item.port);
+  }
+  const seen = new Set(processes.map((item) => item.port));
+  for (const [port, container] of containers) {
+    if (!seen.has(port)) {
+      processes.push({ pid: 0, name: 'docker', port, address: '*', commandLine: `docker container ${container.name}`, container });
+    }
+  }
+  return processes.sort((a, b) => a.port - b.port);
 }
 
 function isAlive(pid: number): boolean {
@@ -163,8 +200,28 @@ async function stoppableGroup(server: PortProcess): Promise<number | undefined> 
 
 export type StopResult = 'stopped' | 'still-running' | 'not-permitted';
 
+async function portStillHeld(port: number): Promise<boolean> {
+  return (await listPortProcesses()).some((item) => item.port === port);
+}
+
+/** Stops a container with `docker stop` (or `docker kill` when forced), then waits for its port. */
+async function stopContainer(server: PortProcess, container: Container, force: boolean): Promise<StopResult> {
+  await run('docker', [force ? 'kill' : 'stop', container.id]);
+  const deadline = Date.now() + (force ? 3000 : 12000);
+  while (Date.now() < deadline) {
+    if (!(await portStillHeld(server.port))) {
+      return 'stopped';
+    }
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  return 'still-running';
+}
+
 /** Asks the server to shut down (SIGTERM), or kills it immediately when `force` is set. */
 export async function stopProcess(server: PortProcess, force: boolean): Promise<StopResult> {
+  if (server.container) {
+    return stopContainer(server, server.container, force);
+  }
   if (process.platform === 'win32') {
     const args = ['/PID', String(server.pid), '/T', '/F'];
     await run('taskkill', args);

@@ -2,7 +2,7 @@
   "name": "portside",
   "displayName": "Portside: Kill Port & Manage Dev Servers",
   "description": "Port 3000 already in use? See every dev server on localhost, which project started it, and stop it in one click. Fixes EADDRINUSE right from the VS Code terminal.",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "publisher": "DivyanshuSingh",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -38,7 +38,8 @@
     "next.js",
     "vite",
     "ports",
-    "process"
+    "process",
+    "docker"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -112,6 +113,17 @@
         "command": "portside.showServers",
         "title": "Show Running Dev Servers",
         "category": "Portside"
+      },
+      {
+        "command": "portside.stopProjectServers",
+        "title": "Stop All Servers in This Project",
+        "category": "Portside",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "portside.stopAllDevServers",
+        "title": "Stop All Dev Servers",
+        "category": "Portside"
       }
     ],
     "menus": {
@@ -120,6 +132,21 @@
           "command": "portside.refresh",
           "when": "view == portside.ports",
           "group": "navigation"
+        },
+        {
+          "command": "portside.stopProjectServers",
+          "when": "view == portside.ports && portside.hasProjectServers",
+          "group": "navigation@1"
+        },
+        {
+          "command": "portside.stopAllDevServers",
+          "when": "view == portside.ports",
+          "group": "1_stop@2"
+        },
+        {
+          "command": "portside.stopPort",
+          "when": "view == portside.ports",
+          "group": "1_stop@1"
         }
       ],
       "view/item/context": [
@@ -200,6 +227,11 @@
           "type": "boolean",
           "default": true,
           "description": "When a terminal reports that a port is already in use, offer to stop whatever is using it."
+        },
+        "portside.autoFreePortsFromThisProject": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "When a command in the terminal fails because a server **from the open project** already holds its port, stop that old server without asking, then offer to run the command again. Servers from other projects always ask first."
         }
       }
     }
@@ -211,12 +243,22 @@
     "package": "vsce package",
     "vscode:prepublish": "npm run compile",
     "demo": "node scripts/demo.js",
-    "test:smoke": "npm run compile && node out/smoke/smoke.js"
+    "test:smoke": "npm run compile && node out/smoke/smoke.js",
+    "test:docker": "npm run compile && node out/smoke/dockerSmoke.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "~1.93.0",
     "@vscode/vsce": "^3.2.0",
     "typescript": "^5.6.0"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": false
   }
 }

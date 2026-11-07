@@ -46,7 +46,22 @@ export function projectName(cwd: string | undefined, homeDirectory: string): str
   return path.basename(cwd);
 }
 
-/** Builds the sidebar model. One entry per process, keeping its lowest port as the main one. */
+/**
+ * Without a working directory (Windows doesn't expose one), a server still belongs to an open
+ * folder when its command line runs a file from inside it, e.g. `node C:\app\node_modules\.bin\next`.
+ */
+export function folderInCommandLine(commandLine: string, folders: string[]): string | undefined {
+  const line = commandLine.toLowerCase().replace(/\\/g, '/');
+  return folders.find((folder) => {
+    const normalized = folder.toLowerCase().replace(/\\/g, '/').replace(/\/+$/, '');
+    return normalized.length > 3 && (line.includes(`${normalized}/`) || line.endsWith(normalized));
+  });
+}
+
+/**
+ * Builds the sidebar model: one entry per process (keeping its lowest port as the main one),
+ * except Docker, where each container gets its own entry.
+ */
 export function buildServers(
   processes: PortProcess[],
   workspaceFolders: string[],
@@ -54,26 +69,44 @@ export function buildServers(
 ): Server[] {
   const folders = workspaceFolders.map(realFolder);
   const home = realFolder(homeDirectory);
-  const byPid = new Map<number, Server>();
+  const entries = new Map<string, Server>();
   for (const item of [...processes].sort((a, b) => a.port - b.port)) {
-    const existing = byPid.get(item.pid);
+    const key = item.container ? `container:${item.container.id}` : `pid:${item.pid}`;
+    const existing = entries.get(key);
     if (existing) {
       if (!existing.extraPorts.includes(item.port) && existing.port !== item.port) {
         existing.extraPorts.push(item.port);
       }
       continue;
     }
-    const insideWorkspace = !!item.cwd && folders.some((folder) => isInside(folder, item.cwd!));
+    if (item.container) {
+      entries.set(key, {
+        ...item,
+        label: item.container.name,
+        group: 'otherDev',
+        project: undefined,
+        extraPorts: [],
+      });
+      continue;
+    }
+    const folderFromCommand = item.cwd ? undefined : folderInCommandLine(item.commandLine, folders);
+    const insideWorkspace = item.cwd ? folders.some((folder) => isInside(folder, item.cwd!)) : !!folderFromCommand;
     const dev = !isAirPlayReceiver(item.name, item.port) && isDevProcess(item.commandLine, item.name, insideWorkspace);
-    byPid.set(item.pid, {
+    entries.set(key, {
       ...item,
       label: describeProcess(item.commandLine, item.name, item.port),
       group: insideWorkspace ? 'workspace' : dev ? 'otherDev' : 'system',
-      project: projectName(item.cwd, home),
+      project: item.cwd ? projectName(item.cwd, home) : folderFromCommand && folderFromCommand.split(/[\\/]/).filter(Boolean).pop(),
       extraPorts: [],
     });
   }
-  return [...byPid.values()].sort((a, b) => a.port - b.port);
+  return [...entries.values()].sort((a, b) => a.port - b.port);
+}
+
+/** Short words shown after the server's name: its project or image, and how long it has run. */
+export function serverDetails(server: Server, uptime: string): string {
+  const where = server.container ? `Docker · ${server.container.image}` : server.project;
+  return [where, uptime].filter(Boolean).join(' · ');
 }
 
 export function urlFor(server: Pick<Server, 'port'>): string {

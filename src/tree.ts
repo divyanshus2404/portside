@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { formatUptime } from './parse';
-import { Server, ServerGroup, urlFor } from './serverModel';
+import { Server, ServerGroup, serverDetails, urlFor } from './serverModel';
 
 const GROUP_TITLES: Record<ServerGroup, string> = {
   workspace: 'This project',
@@ -52,13 +52,14 @@ export class PortsTreeProvider implements vscode.TreeDataProvider<Node> {
 
 function serverItem(server: Server): vscode.TreeItem {
   const item = new vscode.TreeItem(`:${server.port}  ${server.label}`, vscode.TreeItemCollapsibleState.None);
-  const details = [server.project, formatUptime(server.uptimeSeconds)].filter(Boolean);
-  item.description = details.join(' · ');
+  item.description = serverDetails(server, formatUptime(server.uptimeSeconds));
   item.contextValue = 'server';
-  item.iconPath = new vscode.ThemeIcon(
-    'circle-filled',
-    new vscode.ThemeColor(server.group === 'system' ? 'disabledForeground' : 'testing.iconPassed'),
-  );
+  item.iconPath = server.container
+    ? new vscode.ThemeIcon('package', new vscode.ThemeColor('testing.iconPassed'))
+    : new vscode.ThemeIcon(
+        'circle-filled',
+        new vscode.ThemeColor(server.group === 'system' ? 'disabledForeground' : 'testing.iconPassed'),
+      );
   item.tooltip = serverTooltip(server);
   item.command = { command: 'portside.openInBrowser', title: 'Open in Browser', arguments: [server] };
   return item;
@@ -73,10 +74,16 @@ function serverTooltip(server: Server): vscode.MarkdownString {
       'macOS uses this port for AirPlay. To free it, turn off **AirPlay Receiver** in System Settings → General → AirDrop & Handoff.\n\n',
     );
   }
-  tooltip.appendCodeblock(server.commandLine, 'shell');
+  if (server.container) {
+    tooltip.appendMarkdown(
+      `Docker container \`${server.container.name}\` from image \`${server.container.image}\`. Stop runs \`docker stop\`.\n\n`,
+    );
+  } else {
+    tooltip.appendCodeblock(server.commandLine, 'shell');
+  }
   const rows = [
     server.cwd ? `Folder: \`${server.cwd}\`` : undefined,
-    `PID: ${server.pid}`,
+    server.container ? `Container ID: ${server.container.id}` : `PID: ${server.pid}`,
     server.uptimeSeconds !== undefined ? `Running for ${formatUptime(server.uptimeSeconds)}` : undefined,
     `URL: ${urlFor(server)}`,
   ].filter(Boolean);

@@ -24,6 +24,9 @@ jobs:
         run: npm test
       - name: Smoke test (real servers, real stop)
         run: npm run test:smoke
+      - name: Docker smoke test (real container, docker stop)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run test:docker
       - name: Package
         if: matrix.os == 'ubuntu-latest'
         run: npx vsce package --no-dependencies
