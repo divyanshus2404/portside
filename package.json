@@ -1,8 +1,8 @@
 {
   "name": "portside",
-  "displayName": "Portside: Dev Servers & Ports",
-  "description": "See every dev server running on localhost, which project started it, and stop it in one click. Fixes \"port 3000 is already in use\" for good.",
-  "version": "0.1.1",
+  "displayName": "Portside: Kill Port & Manage Dev Servers",
+  "description": "Port 3000 already in use? See every dev server on localhost, which project started it, and stop it in one click. Fixes EADDRINUSE right from the VS Code terminal.",
+  "version": "0.1.2",
   "publisher": "DivyanshuSingh",
   "license": "MIT",
   "icon": "media/icon.png",
@@ -25,11 +25,19 @@
     "Other"
   ],
   "keywords": [
-    "port",
+    "kill port",
+    "port in use",
+    "port already in use",
+    "EADDRINUSE",
+    "address already in use",
     "localhost",
     "dev server",
-    "kill port",
-    "EADDRINUSE",
+    "port 3000",
+    "kill process",
+    "npm run dev",
+    "next.js",
+    "vite",
+    "ports",
     "process"
   ],
   "activationEvents": [
@@ -201,7 +209,8 @@
     "watch": "tsc -watch -p .",
     "test": "npm run compile && node --test out/test/",
     "package": "vsce package",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "demo": "node scripts/demo.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

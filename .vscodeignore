@@ -3,7 +3,9 @@ out/test/**
 out/**/*.map
 node_modules/**
 media/icon.svg
-media/port-conflict.png
+media/demo.gif
+media/sidebar.png
+scripts/**
 tsconfig.json
 .gitignore
 **/*.vsix

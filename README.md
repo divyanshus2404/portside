@@ -1,20 +1,37 @@
-# Portside: Dev Servers & Ports
+# Portside: Kill Port & Manage Dev Servers
 
-**See every dev server running on localhost, which project started it, and stop it in one click.**
+**`Error: listen EADDRINUSE: address already in use :::3000`? Portside tells you what's using the port and stops it in one click.**
 
-No more `Error: listen EADDRINUSE: address already in use :::3000`, no more searching for `lsof -i :3000` and `kill -9`.
+![A terminal shows EADDRINUSE for port 4000, Portside offers to stop the server using it, one click on Stop It frees the port, and npm run dev starts](media/demo.gif)
 
-![A terminal shows EADDRINUSE for port 4000, and Portside offers to stop the server already using it](media/port-conflict.png)
+No more `lsof -i :3000`, no more `kill -9`, no more hunting for the terminal you forgot was running a server.
 
-## Features
+## See every dev server on localhost
 
-- **Everything listening on localhost, in one sidebar.** Each server shows its port, a readable name (Next.js, Vite, Django, Uvicorn, PostgreSQL, Redis…), the project folder that started it, and how long it has been running.
-- **Grouped the way you think.** Servers from the project you have open come first, then other dev servers, then apps and system services (collapsed).
-- **One-click actions.** Open in the browser, copy the URL, reveal the project folder, stop, or force kill.
-- **Fixes "port already in use" where it happens.** When a terminal command fails because a port is taken, Portside tells you what is using it (for example *"Port 3000 is used by Next.js from my-app, running for 2h"*) and offers to stop it.
-- **Stops the whole dev server.** Stopping a server started with `npm run dev` ends the whole job (npm, node and the server), so it doesn't restart itself. Shells and VS Code itself are never touched.
-- **Knows the macOS AirPlay trap.** Ports 5000 and 7000 are taken by macOS AirPlay Receiver. Portside says so and links to the setting instead of offering to kill a system process.
-- **Status bar count** of running dev servers. Click it for a quick list.
+![The Portside sidebar groups servers into This project, Other dev servers and Apps & system services, with names like Next.js, Vite, Django and PostgreSQL, their project folders and uptimes](media/sidebar.png)
+
+- **Everything listening on localhost, in one sidebar.** Each server shows its port, a name you recognize (Next.js, Vite, Astro, Storybook, Django, Uvicorn, Rails, PostgreSQL, Redis…), the project folder that started it, and how long it has been running.
+- **Grouped the way you think.** Servers from the project you have open come first, then other dev servers. Apps and system services stay out of the way.
+- **One-click actions.** Open in the browser, copy the URL, reveal the project folder, stop, or force kill. Hover a server for its full command, folder and PID.
+- **A live count in the status bar.** Click it for a quick list of running dev servers.
+
+## Fixes "port already in use" where it happens
+
+When a command in the VS Code terminal fails because its port is taken, Portside names what holds the port, which project started it and for how long, and offers **Stop It**. It recognizes the errors from Node, Next.js, Vite, Astro, Create React App, Django, Uvicorn, Go, Rails and more.
+
+**It stops the whole dev server.** Stopping a server started with `npm run dev` ends the whole job (npm, node and the server), so it doesn't restart itself. Shells and VS Code itself are never touched.
+
+**It knows the macOS AirPlay trap.** Ports 5000 and 7000 belong to macOS AirPlay Receiver. Portside says so and links to the setting instead of offering to kill a system process.
+
+## Portside vs. doing it by hand
+
+| | By hand | With Portside |
+| --- | --- | --- |
+| Find what's on a port | `lsof -i :3000`, read a PID | Look at the sidebar |
+| Know which project it is | `ps`, `lsof -p <pid> -d cwd` | Shown next to the port |
+| Stop it | `kill <pid>`, then `kill -9` | **Stop It** |
+| Stop `npm run dev` cleanly | Find the parent npm process too | Stops the whole job |
+| Port 5000 taken on a Mac | Search why | Told it's AirPlay Receiver |
 
 ## Commands
 
@@ -39,6 +56,14 @@ No more `Error: listen EADDRINUSE: address already in use :::3000`, no more sear
 - Port-conflict detection reads terminal output through VS Code's shell integration, which is on by default for bash, zsh, fish and PowerShell.
 
 Portside only lists processes your user account can see, and never sends anything over the network.
+
+## Try it without your own projects
+
+Clone the repo and run `npm run demo`. It starts small local servers laid out like Next.js, Storybook, Vite, Astro, Django and a Node API project, so you can see the sidebar and the Stop button in action. Press Ctrl-C to stop them.
+
+## Contributing
+
+Bug reports and ideas are welcome in [GitHub issues](https://github.com/divyanshus2404/portside/issues). Run `npm test` before sending a pull request.
 
 ## License
 

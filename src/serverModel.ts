@@ -1,6 +1,7 @@
 // Groups discovered ports into what the sidebar shows: servers from the open project first,
 // other dev servers next, and apps and system services last.
 
+import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { PortProcess } from './discovery';
@@ -15,6 +16,18 @@ export interface Server extends PortProcess {
   project?: string;
   /** Other ports opened by the same process (e.g. HTTP + HMR websocket). */
   extraPorts: number[];
+}
+
+/**
+ * Resolves symlinks so folders compare equal to what `lsof` reports. On macOS `/var` and
+ * `/tmp` link to `/private/...`, and project folders are often symlinked from other drives.
+ */
+export function realFolder(folder: string): string {
+  try {
+    return fs.realpathSync.native(folder);
+  } catch {
+    return folder;
+  }
 }
 
 export function isInside(folder: string, target: string): boolean {
@@ -39,6 +52,8 @@ export function buildServers(
   workspaceFolders: string[],
   homeDirectory: string = os.homedir(),
 ): Server[] {
+  const folders = workspaceFolders.map(realFolder);
+  const home = realFolder(homeDirectory);
   const byPid = new Map<number, Server>();
   for (const item of [...processes].sort((a, b) => a.port - b.port)) {
     const existing = byPid.get(item.pid);
@@ -48,13 +63,13 @@ export function buildServers(
       }
       continue;
     }
-    const insideWorkspace = !!item.cwd && workspaceFolders.some((folder) => isInside(folder, item.cwd!));
+    const insideWorkspace = !!item.cwd && folders.some((folder) => isInside(folder, item.cwd!));
     const dev = !isAirPlayReceiver(item.name, item.port) && isDevProcess(item.commandLine, item.name, insideWorkspace);
     byPid.set(item.pid, {
       ...item,
       label: describeProcess(item.commandLine, item.name, item.port),
       group: insideWorkspace ? 'workspace' : dev ? 'otherDev' : 'system',
-      project: projectName(item.cwd, homeDirectory),
+      project: projectName(item.cwd, home),
       extraPorts: [],
     });
   }

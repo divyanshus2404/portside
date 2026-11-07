@@ -88,6 +88,26 @@ test('buildServers leaves servers started from the home folder without a project
   assert.equal(server.group, 'otherDev');
 });
 
+test('buildServers matches a workspace opened through a symlink', () => {
+  const fs = require('node:fs') as typeof import('node:fs');
+  const os = require('node:os') as typeof import('node:os');
+  const path = require('node:path') as typeof import('node:path');
+  const real = fs.mkdtempSync(path.join(os.tmpdir(), 'portside-real-'));
+  const link = `${real}-link`;
+  fs.symlinkSync(real, link);
+  try {
+    const [server] = buildServers(
+      [{ pid: 1, name: 'node', port: 3000, address: '*', commandLine: 'node app.js', cwd: fs.realpathSync.native(real) }],
+      [link],
+      '/home/nobody',
+    );
+    assert.equal(server.group, 'workspace');
+  } finally {
+    fs.unlinkSync(link);
+    fs.rmdirSync(real);
+  }
+});
+
 test('buildServers groups by project and merges extra ports of one process', () => {
   const servers = buildServers(
     [
