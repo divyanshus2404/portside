@@ -1,0 +1,204 @@
+{
+  "name": "portside",
+  "displayName": "Portside: Dev Servers & Ports",
+  "description": "See every dev server running on localhost, which project started it, and stop it in one click. Fixes \"port 3000 is already in use\" for good.",
+  "version": "0.1.0",
+  "publisher": "divyanshus2404",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/divyanshus2404/portside"
+  },
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "port",
+    "localhost",
+    "dev server",
+    "kill port",
+    "EADDRINUSE",
+    "process"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "portside",
+          "title": "Portside",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "portside": [
+        {
+          "id": "portside.ports",
+          "name": "Ports",
+          "contextualTitle": "Portside"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "portside.ports",
+        "contents": "No servers are listening on localhost right now.\nStart a dev server and it shows up here."
+      }
+    ],
+    "commands": [
+      {
+        "command": "portside.refresh",
+        "title": "Refresh",
+        "category": "Portside",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "portside.stop",
+        "title": "Stop",
+        "category": "Portside",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "portside.forceKill",
+        "title": "Force Kill",
+        "category": "Portside"
+      },
+      {
+        "command": "portside.openInBrowser",
+        "title": "Open in Browser",
+        "category": "Portside",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "portside.copyUrl",
+        "title": "Copy URL",
+        "category": "Portside"
+      },
+      {
+        "command": "portside.revealFolder",
+        "title": "Reveal Project Folder",
+        "category": "Portside"
+      },
+      {
+        "command": "portside.stopPort",
+        "title": "Stop Whatever Is Using a Port...",
+        "category": "Portside"
+      },
+      {
+        "command": "portside.showServers",
+        "title": "Show Running Dev Servers",
+        "category": "Portside"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "portside.refresh",
+          "when": "view == portside.ports",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "portside.openInBrowser",
+          "when": "view == portside.ports && viewItem == server",
+          "group": "inline@1"
+        },
+        {
+          "command": "portside.stop",
+          "when": "view == portside.ports && viewItem == server",
+          "group": "inline@2"
+        },
+        {
+          "command": "portside.openInBrowser",
+          "when": "view == portside.ports && viewItem == server",
+          "group": "1_open@1"
+        },
+        {
+          "command": "portside.copyUrl",
+          "when": "view == portside.ports && viewItem == server",
+          "group": "1_open@2"
+        },
+        {
+          "command": "portside.revealFolder",
+          "when": "view == portside.ports && viewItem == server",
+          "group": "1_open@3"
+        },
+        {
+          "command": "portside.stop",
+          "when": "view == portside.ports && viewItem == server",
+          "group": "2_stop@1"
+        },
+        {
+          "command": "portside.forceKill",
+          "when": "view == portside.ports && viewItem == server",
+          "group": "2_stop@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "portside.stop",
+          "when": "false"
+        },
+        {
+          "command": "portside.forceKill",
+          "when": "false"
+        },
+        {
+          "command": "portside.openInBrowser",
+          "when": "false"
+        },
+        {
+          "command": "portside.copyUrl",
+          "when": "false"
+        },
+        {
+          "command": "portside.revealFolder",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Portside",
+      "properties": {
+        "portside.refreshInterval": {
+          "type": "number",
+          "default": 5,
+          "minimum": 2,
+          "description": "How often, in seconds, to check which ports are in use while VS Code is focused."
+        },
+        "portside.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the number of running dev servers in the status bar."
+        },
+        "portside.detectPortConflicts": {
+          "type": "boolean",
+          "default": true,
+          "description": "When a terminal reports that a port is already in use, offer to stop whatever is using it."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "test": "npm run compile && node --test out/test/",
+    "package": "vsce package",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "~1.93.0",
+    "@vscode/vsce": "^3.2.0",
+    "typescript": "^5.6.0"
+  }
+}

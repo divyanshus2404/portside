@@ -1,0 +1,8 @@
+src/**
+out/test/**
+out/**/*.map
+node_modules/**
+media/icon.svg
+tsconfig.json
+.gitignore
+**/*.vsix
