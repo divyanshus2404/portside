@@ -3,7 +3,7 @@
   "displayName": "Portside: Dev Servers & Ports",
   "description": "See every dev server running on localhost, which project started it, and stop it in one click. Fixes \"port 3000 is already in use\" for good.",
   "version": "0.1.0",
-  "publisher": "divyanshus2404",
+  "publisher": "DivyanshuSingh",
   "license": "MIT",
   "icon": "media/icon.png",
   "repository": {
