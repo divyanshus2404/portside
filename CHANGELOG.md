@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Fixed the version and install badges at the top of the Marketplace page, which showed "retired badge" after the badge service dropped support.
+
 ## 0.2.0
 
 - **Run Again:** after freeing a port from the "port in use" popup, rerun the command that failed in the same terminal.

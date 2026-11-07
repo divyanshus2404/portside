@@ -1,7 +1,7 @@
 # Portside: Kill Port & Manage Dev Servers
 
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/DivyanshuSingh.portside?label=VS%20Code%20Marketplace&color=0078d4)](https://marketplace.visualstudio.com/items?itemName=DivyanshuSingh.portside)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/DivyanshuSingh.portside?color=3fd68b)](https://marketplace.visualstudio.com/items?itemName=DivyanshuSingh.portside)
+[![VS Code Marketplace](https://vsmarketplacebadges.dev/version-short/DivyanshuSingh.portside.svg)](https://marketplace.visualstudio.com/items?itemName=DivyanshuSingh.portside)
+[![Installs](https://vsmarketplacebadges.dev/installs-short/DivyanshuSingh.portside.svg)](https://marketplace.visualstudio.com/items?itemName=DivyanshuSingh.portside)
 [![CI](https://github.com/divyanshus2404/portside/actions/workflows/ci.yml/badge.svg)](https://github.com/divyanshus2404/portside/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
