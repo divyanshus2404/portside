@@ -210,7 +210,8 @@
     "test": "npm run compile && node --test out/test/",
     "package": "vsce package",
     "vscode:prepublish": "npm run compile",
-    "demo": "node scripts/demo.js"
+    "demo": "node scripts/demo.js",
+    "test:smoke": "npm run compile && node out/smoke/smoke.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

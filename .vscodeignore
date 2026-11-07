@@ -1,5 +1,6 @@
 src/**
 out/test/**
+out/smoke/**
 out/**/*.map
 node_modules/**
 media/icon.svg
